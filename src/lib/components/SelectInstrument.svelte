@@ -65,9 +65,9 @@
             </div>
             <div class="more">Musical instrument tuner. v{version}</div>
         </div>
-        <div class="dev">Developed by Fuad Hasan</div>
+        <div class="dev">Developed by Hans Temu</div>
         <div class="src">
-            <a href="https://github.com/itsfuad/Poketune" target="_blank"
+            <a href="https://github.com/hanshat/Poketune" target="_blank"
                 >Source Code <i class="fa-solid fa-up-right-from-square"></i></a
             >
         </div>
