@@ -1,0 +1,173 @@
+@import url('$lib/fontawesome/css/all.css');
+
+@font-face {
+	font-family: Now;
+	src: url('$lib/fonts/thin.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: Comf;
+    src: url('$lib/fonts/comf.woff2') format('woff2');
+}
+
+*{
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	font-family: 'Now';
+	color: white;
+	user-select: none;
+	user-drag: none;
+	-webkit-user-drag: none;
+	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+	-webkit-tap-highlight-color: transparent;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+}
+
+/*
+Remove scrollbars
+*/
+
+::-webkit-scrollbar {
+	width: 0px;
+}
+
+:root{
+	--primary: #0b1d37;
+	--secondary: #2c3e50;
+}
+
+body{
+	background-color: var(--primary);
+	overflow: hidden;
+	overscroll-behavior-y: none;
+}
+
+body, html{
+	overscroll-behavior-y: none;
+}
+
+button{
+	border: none;
+	outline: none;
+}
+
+img{
+	-webkit-user-drag: none;
+	user-drag: none;
+	display: block;
+	//max-width: 100%;
+	//max-height: 100%;
+	object-fit: contain;
+}
+
+.startButton {
+	border: none;
+	outline: none;
+	padding: 10px;
+	width: 50px;
+	min-width: 50px;
+	height: 50px;
+	min-height: 50px;
+	border-radius: 50%;
+	background: #266dfa;
+	cursor: pointer;
+	transition: 100ms;
+	position: relative;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	i{
+		font-size: 1.5rem;
+	}
+
+	&.stop {
+        background: #ff0000;
+    }
+}
+
+.beatButton{
+	border-radius: 10px;
+	padding: 8px 12px;
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	gap: 10px;
+	border: 2px solid #b291ff3d;
+	transition: 100ms ease-in-out;
+	background: transparent;
+	min-width: 70px;
+
+	
+	.label{
+		font-size: 0.7rem;
+		font-weight: 700;
+	}
+	
+	.fa-play{
+		color: #e08d48;
+	}
+	
+	.fa-pause{
+		color: #ff3d3d;
+	}
+	
+	.fa-drum{
+		color: #a0a7ff;
+	}
+	
+	&.pressed{
+		border: 2px solid #b291ff;
+	}
+	
+	i{
+		font-size: 2rem;
+	}
+}
+
+.startButton:hover {
+	filter: brightness(0.97);
+}
+
+.updateButton{
+	border: none;
+    outline: none;
+    padding: 10px;
+    width: 35px;
+    height: 35px;
+    border-radius: 10px;
+    background: var(--secondary);
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+	&:hover {
+		filter: brightness(0.97);
+	}
+}
+
+.label{
+	font-size: 0.7rem;
+	font-weight: 700;
+	i{
+		color: #b291ff;
+	}
+}
+
+.input{
+	padding-bottom: 20px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+}
