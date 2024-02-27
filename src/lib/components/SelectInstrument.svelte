@@ -72,8 +72,8 @@
             >
         </div>
         <div class="images">
-            <a href="https://www.flaticon.com" target="_blank"
-                >Icons & Images <i class="fa-solid fa-up-right-from-square"
+            <a href="https://www.instagram.com/iamhans___" target="_blank"
+                >Instagram <i class="fa-solid fa-up-right-from-square"
                 ></i></a
             >
         </div>
