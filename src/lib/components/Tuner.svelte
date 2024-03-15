@@ -10,8 +10,9 @@
     import { writable } from "svelte/store";
     import WaveCanvas from "./waveCanvas.svelte";
     import { createEventDispatcher } from 'svelte'
-    import InstrumentIcon from "./InstrumentIcon.svelte";
+    import { tweened } from "svelte/motion";
     import Logo from "./logo.svelte";
+    import { showToastMessage } from "domtoastmessage";
 
     const dispatch = createEventDispatcher();
 
@@ -21,18 +22,18 @@
 
     let Octave: number;
     let Note: string;
-    let Cent = 0;
-
+    
     let canvas: HTMLCanvasElement;
-
+    
     let isListening = false;
-
+    
     let audioContext: AudioContext;
-
+    
     let tunedNotes = new Set<string>();
-
-    let Frequency = 0;
-    let detectedClarity = 0;
+        
+    const Cent = tweened(0, { duration: 100 });
+    const Frequency = tweened(0, { duration: 100 });
+    const detectedClarity = tweened(0, { duration: 100 });
 
     let analyserNode: AnalyserNode;
 
@@ -108,64 +109,72 @@
 
     function stop() {
         //console.log("stop");
-
-        if (!audioContext) {
-            //console.log("No audio context");
-            return;
+        try{
+            if (!audioContext) {
+                //console.log("No audio context");
+                return;
+            }
+    
+            if (audioContext.state === "closed") {
+                //console.log("Already closed");
+                return;
+            }
+    
+            if (interval) {
+                clearInterval(interval);
+            }
+    
+            audioContext.close().then(() => {
+                isListening = false;
+                Cent.set(0);
+                Frequency.set(0);
+                Note = "";
+                detectedClarity.set(0);
+            });
+    
+            dispatch('keepAwake', false);
+    
+            reset();
+    
+            stream.getTracks().forEach((track) => track.stop());
+    
+            analyserNode.disconnect();
+        } catch (e){
+            console.error(e);
+            showToastMessage(e as string);
         }
-
-        if (audioContext.state === "closed") {
-            //console.log("Already closed");
-            return;
-        }
-
-        if (interval) {
-            clearInterval(interval);
-        }
-
-        audioContext.close().then(() => {
-            isListening = false;
-            Cent = 0;
-            Frequency = 0;
-            Note = "";
-            detectedClarity = 0;
-        });
-
-        dispatch('keepAwake', false);
-
-        reset();
-
-        stream.getTracks().forEach((track) => track.stop());
-
-        analyserNode.disconnect();
     }
 
     async function start() {
         //console.log("start");
-
-        //if closed
-        if (audioContext?.state != "running") {
-            //create new audio context
-
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-            if (stream) {
-                audioContext = new window.AudioContext();
-                analyserNode = audioContext.createAnalyser();
-                audioContext
-                    .createMediaStreamSource(stream)
-                    .connect(analyserNode);
-
-                isListening = true;
-
-                dispatch('keepAwake', true);
-
-                if (audioContext.state === "running") {
-                    interval = setInterval(() => {
-                        updatePitch(analyserNode, audioContext.sampleRate);
-                    }, 100);
+        try{
+            //if closed
+            if (audioContext?.state != "running") {
+                //create new audio context
+    
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    
+                if (stream) {
+                    audioContext = new window.AudioContext();
+                    analyserNode = audioContext.createAnalyser();
+                    audioContext
+                        .createMediaStreamSource(stream)
+                        .connect(analyserNode);
+    
+                    isListening = true;
+    
+                    dispatch('keepAwake', true);
+    
+                    if (audioContext.state === "running") {
+                        interval = setInterval(() => {
+                            updatePitch(analyserNode, audioContext.sampleRate);
+                        }, 100);
+                    }
                 }
             }
+        } catch (e){
+            console.error(e);
+            showToastMessage(e as string);
         }
     }
 
@@ -179,12 +188,12 @@
         const [pitch, clarity] = detector.findPitch(dataArray, sampleRate);
 
         if (clarity !== null) {
-            detectedClarity = Math.round(clarity * 100);
+            detectedClarity.set(clarity * 100);
         }
 
         if (clarity < 0.8) {
-            Frequency = 0;
-            Cent = 0;
+            Frequency.set(0);
+            Cent.set(0);
             return;
         }
 
@@ -193,12 +202,14 @@
 
         Note = tune.note;
         Octave = tune.octave;
-        Cent = tune.cent;
-        Frequency = Math.round(pitch * 100) / 100;
+        Cent.set(tune.cent);
+        Frequency.set((pitch * 100) / 100);
+
+        console.log($Cent);
 
         const noteId = Note + Octave;
         
-        if (($selectedInstrument != "Chromatic" && $selectedInstrument != "none") && Math.abs(Cent) < 8 && Math.abs(Cent) > 0) {
+        if (($selectedInstrument != "Chromatic" && $selectedInstrument != "none") && Math.abs($Cent) < 8 && Math.abs($Cent) > 0) {
             tunedNotes.add(noteId);
             tunedNotes = new Set<string>(tunedNotes);
             //if correct note is played and all notes are not tuned
@@ -237,75 +248,80 @@
     let streamMuteTimeout: number;
 
     async function playNote(frequency: number){
-       
-        let dividerFrequency: number = 0;
-        //load audio
-        let url = '';
-        if ($selectedInstrument == "Guitar"){
-            url = "/sounds/guitar.mp3";
-            dividerFrequency = getFrequency("E", 2);
-        } else if ($selectedInstrument == "Ukulele"){
-            url = "/sounds/ukulele.mp3";
-            dividerFrequency = getFrequency("G", 4);
-        } else if ($selectedInstrument == "Bass"){
-            url = "/sounds/bass.mp3";
-            dividerFrequency = getFrequency("E", 1);
-        }
 
-        const noteAudioContext = new AudioContext();
-
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        audioBuffer = await noteAudioContext.decodeAudioData(arrayBuffer);
-
-        const source = noteAudioContext.createBufferSource();
-        source.buffer = audioBuffer;
-
-        const gainNode = noteAudioContext.createGain();
-        const distortion = noteAudioContext.createWaveShaper();
-        const phaser = noteAudioContext.createDelay();
-        phaser.delayTime.value = 0.1;
-
-        gainNode.connect(noteAudioContext.destination);
-        distortion.connect(gainNode);
-        phaser.connect(distortion);
-        source.connect(gainNode);
-
-
-        gainNode.gain.setValueAtTime(1, noteAudioContext.currentTime);
-
-        gainNode.gain.exponentialRampToValueAtTime(
-            0.1,
-            noteAudioContext.currentTime + 1,
-        );
-
-        gainNode.gain.exponentialRampToValueAtTime(
-            0.1,
-            noteAudioContext.currentTime + 1.01,
-        );
-
-        source.playbackRate.value = frequency / dividerFrequency;
-        
-        
-        //we have to mute the microphone so that the sound is not picked up by the microphone
-        if (stream) {
-            stream.getAudioTracks().forEach((track) => {
-                track.enabled = false;
-            });
-        }
-
-        clearTimeout(streamMuteTimeout);
-
-        source.start();
-
-        streamMuteTimeout = setTimeout(() => {
-            //unmute the microphone
+        try{
+            let dividerFrequency: number = 0;
+            //load audio
+            let url = '';
+            if ($selectedInstrument == "Guitar"){
+                url = "/sounds/guitar.mp3";
+                dividerFrequency = getFrequency("E", 2);
+            } else if ($selectedInstrument == "Ukulele"){
+                url = "/sounds/ukulele.mp3";
+                dividerFrequency = getFrequency("G", 4);
+            } else if ($selectedInstrument == "Bass"){
+                url = "/sounds/bass.mp3";
+                dividerFrequency = getFrequency("E", 1);
+            }
+    
+            const noteAudioContext = new AudioContext();
+    
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            audioBuffer = await noteAudioContext.decodeAudioData(arrayBuffer);
+    
+            const source = noteAudioContext.createBufferSource();
+            source.buffer = audioBuffer;
+    
+            const gainNode = noteAudioContext.createGain();
+            const distortion = noteAudioContext.createWaveShaper();
+            const phaser = noteAudioContext.createDelay();
+            phaser.delayTime.value = 0.1;
+    
+            gainNode.connect(noteAudioContext.destination);
+            distortion.connect(gainNode);
+            phaser.connect(distortion);
+            source.connect(gainNode);
+    
+    
+            gainNode.gain.setValueAtTime(1, noteAudioContext.currentTime);
+    
+            gainNode.gain.exponentialRampToValueAtTime(
+                0.1,
+                noteAudioContext.currentTime + 1,
+            );
+    
+            gainNode.gain.exponentialRampToValueAtTime(
+                0.1,
+                noteAudioContext.currentTime + 1.01,
+            );
+    
+            source.playbackRate.value = frequency / dividerFrequency;
+            
+            
+            //we have to mute the microphone so that the sound is not picked up by the microphone
             if (stream) {
                 stream.getAudioTracks().forEach((track) => {
-                    track.enabled = true;
+                    track.enabled = false;
                 });
             }
-        }, 300);
+    
+            clearTimeout(streamMuteTimeout);
+    
+            source.start();
+    
+            streamMuteTimeout = setTimeout(() => {
+                //unmute the microphone
+                if (stream) {
+                    stream.getAudioTracks().forEach((track) => {
+                        track.enabled = true;
+                    });
+                }
+            }, 300);
+        } catch (e){
+            console.error(e);
+            showToastMessage(e as string);
+        }
     }
 
     const playNoteTimeouts: { [key: string]: number } = {};
@@ -397,14 +413,14 @@
                 {/each}
                 <div
                     class="pointer"
-                    style="width: max(calc((100% / 12)*{Math.abs(Cent) /
+                    style="width: max(calc((100% / 12)*{Math.abs($Cent) /
                         10}), 5px);"
-                    class:left={Cent < -2}
-                    class:right={Cent > 2}
-                    class:strong={Math.abs(Cent) < 10}
-                    class:average={Math.abs(Cent) > 10 && Math.abs(Cent) < 20}
-                    class:weak={Math.abs(Cent) > 20 && Math.abs(Cent) < 30}
-                    class:poor={Math.abs(Cent) > 30}
+                    class:left={$Cent < -2}
+                    class:right={$Cent > 2}
+                    class:strong={Math.abs($Cent) < 10}
+                    class:average={Math.abs($Cent) > 10 && Math.abs($Cent) < 20}
+                    class:weak={Math.abs($Cent) > 20 && Math.abs($Cent) < 30}
+                    class:poor={Math.abs($Cent) > 30}
                 ></div>
             </div>
             <div class="labels">
@@ -415,11 +431,11 @@
         </div>
     </div>
     <div class="info">
-        <div class="freq">f: {Frequency} Hz</div>
+        <div class="freq">f: {Math.round($Frequency)} Hz</div>
         <div class="clarity">
-            Clarity: {detectedClarity}% {detectedClarity > 80 ? "👍" : "👎"}
+            Clarity: {Math.round($detectedClarity)}% {$detectedClarity > 80 ? "👍" : "👎"}
         </div>
-        <div class="cent">{Cent} C {Math.abs(Cent) < 10 ? "😁" : "😢"}</div>
+        <div class="cent">{Math.round($Cent)} C {Math.abs($Cent) < 10 ? "😁" : "😢"}</div>
     </div>
     {#if $selectedInstrument != "Chromatic"}
         {#if tunedNotes.size != 0 && tunedNotes.size == Object.values(notes).length}
